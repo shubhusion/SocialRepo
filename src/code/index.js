@@ -6,8 +6,8 @@ const home = document.getElementById("home");
 const info = document.getElementById("info");
 const edit = document.getElementById("edit");
 
-
 // ============== Header ==============
+
 infoBtn.addEventListener("click", () => {
     console.log("Info button clicked!");
     if (info.classList.contains("hidden")) {
@@ -48,6 +48,7 @@ showBtn.addEventListener("click", () => {
 });
 
 // ============== Utility Functions ==============
+
 function getSocialLinks() {
     const socialLinks = {};
     fetch("../social-links.json")
@@ -72,6 +73,7 @@ function getSocialLinks() {
 }
 
 const socialLinks = getSocialLinks();
+
 
 // ============== Home ==============
 function showCopyMessage(key) {
@@ -104,16 +106,21 @@ function createSocialLinks(key, value) {
     socialLinksContainer.appendChild(li);
 }
 
+
 // ============== Edit ==============
-function previewLink(button) {
+function previewLink(button, value) {
     const parentElement = button.parentNode;
     const inputElement = parentElement.querySelector("input");
     const inputValue = inputElement.value;
     console.log("Placeholder value:", inputElement.placeholder);
     console.log("Input value:", inputValue);
+
+    button.addEventListener("click", () => {
+        window.open(inputValue, "_blank");
+    });
+
     // Rest of the code...
 }
-
 
 // ============== Random Placeholder Generation ==============
 const placeholderTexts = [
@@ -149,11 +156,13 @@ const placeholderTexts = [
 ];
 
 // Function to generate a random placeholder text
-function randomTextGenerator(placeholderTexts) {
+function getRandomPlaceholderText(placeholderTexts) {
     const randomIndex = Math.floor(Math.random() * placeholderTexts.length);
     return placeholderTexts[randomIndex];
 }
 
+
+// ============== Search ==============
 const searchInput = document.querySelector('.search-input');
 const linksContainer = document.getElementById('links-container');
 const originalLinkBoxes = Array.from(document.querySelectorAll('.link-box'));
@@ -188,3 +197,48 @@ function searchLinks() {
 searchInput.addEventListener('input', searchLinks);
 console.log('Event listener attached to search input');
 
+
+// ============== Link Validation ==============
+function updateLinkPreview(input) {
+    const button = input.parentNode.querySelector("button");
+    const value = input.value;
+    button.disabled = false;
+    button.dataset.inputValue = value;
+
+    // Add the event listener only once
+    if (!button.dataset.listenerAdded) {
+        button.addEventListener("click", openLink);
+        button.dataset.listenerAdded = true;  // Mark the listener as added
+    }
+
+    function openLink() {
+        // Use the latest input value stored in the data attribute
+        const value = button.dataset.inputValue;
+        window.open(value, "_blank");
+    }
+};
+
+function validateInput(input) {
+    if (input.value !== "") {
+        input.parentNode.style.backgroundColor = "#eeeeee";
+    } else {
+        input.parentNode.style.backgroundColor = "#d0beff";
+    }
+    const urlPattern = /^(http:\/\/|https:\/\/)[\w.-]+(?:\.[\w.-]+)+[\w\-\._~:/?#[\]@!$&'()*+,;=]+$/;
+    const mailtoPattern = /^mailto:[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    
+    const isUrl = urlPattern.test(input.value);
+    const isMailto = mailtoPattern.test(input.value);
+    const previewButton = input.parentNode.querySelector("button");
+    if (isUrl || isMailto) {
+        input.style.borderBottomColor = "green";
+        updateLinkPreview(input);
+    } else {
+        input.style.borderBottomColor = "red";
+        previewButton.disabled = true;
+    }
+}
+
+document.querySelectorAll("#edit #links-container input[type='text']").forEach(input => {
+    input.addEventListener("input", () => validateInput(input));
+});
