@@ -1,3 +1,4 @@
+'use strict';
 console.log("Social Repo opened!");
 
 const infoBtn = document.getElementById("info-btn");
@@ -61,7 +62,7 @@ function getSocialLinks() {
         .then(jsonData => {
             Object.keys(jsonData).slice(1).forEach(key => {
                 socialLinks[key] = jsonData[key];
-                createSocialLinks(key, jsonData[key]);
+                createSocialLink(key, jsonData[key]);
             });
             return socialLinks;
         })
@@ -70,8 +71,7 @@ function getSocialLinks() {
             return {};
         });
     return socialLinks;
-}
-
+};
 const socialLinks = getSocialLinks();
 
 
@@ -89,9 +89,9 @@ function createImage(key) {
 }
 
 const socialLinksContainer = document.getElementById("socialLinks");
-function createSocialLinks(key, value) {
+function createSocialLink(key, value) {
     const li = document.createElement("li");
-    const img= createImage(key);    
+    const img = createImage(key);
     img.onload = () => {
         li.appendChild(img);
         li.addEventListener("click", () => {
@@ -104,22 +104,6 @@ function createSocialLinks(key, value) {
         li.remove();
     };
     socialLinksContainer.appendChild(li);
-}
-
-
-// ============== Edit ==============
-function previewLink(button, value) {
-    const parentElement = button.parentNode;
-    const inputElement = parentElement.querySelector("input");
-    const inputValue = inputElement.value;
-    console.log("Placeholder value:", inputElement.placeholder);
-    console.log("Input value:", inputValue);
-
-    button.addEventListener("click", () => {
-        window.open(inputValue, "_blank");
-    });
-
-    // Rest of the code...
 }
 
 // ============== Random Placeholder Generation ==============
@@ -169,7 +153,7 @@ const originalLinkBoxes = Array.from(document.querySelectorAll('.link-box'));
 
 function searchLinks() {
     const searchText = searchInput.value.toLowerCase();
-    
+
     console.log('searchLinks function called');
     console.log('Search text:', searchText);
 
@@ -218,19 +202,19 @@ function updateLinkPreview(input) {
     }
 };
 
-function validateInput(input) {
-    if (input.value !== "") {
-        input.parentNode.style.backgroundColor = "#eeeeee";
-    } else {
-        input.parentNode.style.backgroundColor = "#d0beff";
-    }
+function isValidURL(url) {
     const urlPattern = /^(http:\/\/|https:\/\/)[\w.-]+(?:\.[\w.-]+)+[\w\-\._~:/?#[\]@!$&'()*+,;=]+$/;
-    const mailtoPattern = /^mailto:[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    
-    const isUrl = urlPattern.test(input.value);
-    const isMailto = mailtoPattern.test(input.value);
+    const mailtoPattern = /^(mailto:)?[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    const isUrl = urlPattern.test(url);
+    const isMailto = mailtoPattern.test(url);
+
+    return isUrl || isMailto;
+}
+
+function validateInput(input) {
     const previewButton = input.parentNode.querySelector("button");
-    if (isUrl || isMailto) {
+    if (isValidURL(input.value)) {
         input.style.borderBottomColor = "green";
         updateLinkPreview(input);
     } else {
@@ -239,6 +223,285 @@ function validateInput(input) {
     }
 }
 
-document.querySelectorAll("#edit #links-container input[type='text']").forEach(input => {
-    input.addEventListener("input", () => validateInput(input));
+function removeIfEmpty(input) {
+    const linkBox = input.parentNode.parentNode;
+    const linkContainer = document.getElementById("links-container");
+    if (input.value === "" && linkContainer.contains(linkBox) && document.getElementById(linkBox.id) !== null) {
+        try {
+            linkBox.remove();
+        } catch (error) {
+        }
+    }
+}
+
+function getSocialName(url) {
+    for (const key in socialLinks) {
+        const value = socialLinks[key].replace("<username>", "");
+        const valueUrl = new URL(value)
+        const host = valueUrl.hostname.replace("www.", "");
+        if (url.includes(host)) {
+            return { key, value };
+        }
+    }
+    return null;
+}
+
+function setIcon(key, parentElement) {
+    const iconElement = parentElement.querySelector('.icon');
+    const logoPath = `../assets/logos/${key}.png`;
+    // png file must have the same name as the key.
+    const defaultLogoPath = '../assets/logos/default.png';
+
+    fetch(logoPath)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Logo not found:`);
+            }
+            iconElement.src = logoPath;
+        })
+        .catch(() => {
+            iconElement.src = defaultLogoPath;
+        });
+}
+
+function UpdateLinkBox(button) {
+    const parentElement = button.parentNode;
+    const inputElement = parentElement.querySelector("input");
+    const inputValue = inputElement.value;
+    console.log("Placeholder value:", inputElement.placeholder);
+    console.log("Input value:", inputValue);
+
+    /*
+    Fixes:
+    - check if the input value is MAIL
+    - If not MAIL
+    - remove username from the input value
+    - validate complete profile URL using value of destructured object
+    */
+
+    console.log(getSocialName(inputValue));
+    if (isValidURL(inputValue)) {
+        console.log("Valid URL!");
+        const socialName = getSocialName(inputValue);
+        if (!socialName) {
+            button.disabled = true;
+            setIcon(null, parentElement);
+            return;
+        }
+        const { key, value } = socialName;
+        console.log("Key found!:", key);
+        setIcon(key, parentElement);
+        button.disabled = false;
+        //! It should done when the link is completed
+        inputElement.style.borderBottomColor = "transparent";
+
+    } else {
+        console.log("No key found!");
+        setIcon(null, parentElement);
+        button.disabled = true;
+    };
+}
+
+function updateAllLinkBox() {
+    document.querySelectorAll("#edit #links-container input[type='text']").forEach(input => {
+        input.addEventListener("input", () => {
+            validateInput(input);
+            const button = input.parentNode.querySelector("button");
+            console.log("Input changed!");
+            UpdateLinkBox(button);
+            removeIfEmpty(input);
+            console.log("Changed", input.placeholder);
+        });
+    });
+}
+
+// ============== Focus Handlers  ==============
+function checkFocusOut(event, linkBox) {
+    let otherLinkBox = event.relatedTarget;
+    switch (otherLinkBox) {
+        case null:
+            otherLinkBox = "";
+            break;
+        case otherLinkBox.classList.contains("link-box"):
+            break;
+        case otherLinkBox.classList.contains("dragger"):
+            otherLinkBox = otherLinkBox.parentNode;
+            break;
+        case otherLinkBox.classList.contains("link"):
+            otherLinkBox = otherLinkBox.parentNode;
+            break;
+        case otherLinkBox.classList.contains("icon"):
+            otherLinkBox = otherLinkBox.parentNode.parentNode;
+            break;
+        case otherLinkBox.classList.contains("input"):
+            otherLinkBox = otherLinkBox.parentNode.parentNode;
+            break;
+        case otherLinkBox.classList.contains("preview"):
+            otherLinkBox = otherLinkBox.parentNode.parentNode;
+            break;
+        case otherLinkBox.classList.contains("share"):
+            otherLinkBox = otherLinkBox.parentNode.parentNode.parentNode;
+            break;
+        default:
+            otherLinkBox = "";
+            break;
+    };
+    return otherLinkBox.id !== linkBox.id;
+};
+
+// ============== Add Link Box  ==============
+const addLinkBtn = document.querySelector(".add-link-btn");
+let idx = 0;
+function addLinkBox() {
+    const parentLinkBox = document.getElementById("links-container");
+    let randomPlaceholder = getRandomPlaceholderText(placeholderTexts);
+
+    const childBoxFormat = document.createElement('li');
+    childBoxFormat.classList.add('link-box', 'column');
+    childBoxFormat.setAttribute("draggable", true);
+    childBoxFormat.id = `link-box-${idx}`;
+
+    const draggerImg = document.createElement('img');
+    draggerImg.src = '../assets/logos/drag.png';
+    draggerImg.alt = 'dragger';
+    draggerImg.classList.add('dragger');
+    draggerImg.tabIndex = 1;
+    childBoxFormat.appendChild(draggerImg);
+
+    const linkDiv = document.createElement('div');
+    linkDiv.classList.add('link');
+    linkDiv.tabIndex = 2;
+    
+    const iconImg = document.createElement('img');
+    iconImg.src = '../assets/logos/default.png';
+    iconImg.alt = 'linkedin';
+    iconImg.classList.add('icon');
+    iconImg.tabIndex = 3;
+    linkDiv.appendChild(iconImg);
+    
+    const inputField = document.createElement('input');
+    inputField.type = 'text';
+    inputField.placeholder = randomPlaceholder;
+    inputField.classList.add('input');
+    inputField.tabIndex = 4;
+    linkDiv.appendChild(inputField);
+    
+    const previewBtn = document.createElement('button');
+    previewBtn.classList.add('preview');
+    previewBtn.disabled = true;
+    previewBtn.tabIndex = 5;
+    linkDiv.appendChild(previewBtn);
+    
+    const shareImg = document.createElement('img');
+    shareImg.src = '../assets/logos/share.png';
+    shareImg.alt = 'preview link';
+    shareImg.classList.add('share');
+    shareImg.tabIndex = 6;
+
+    previewBtn.appendChild(shareImg);
+    childBoxFormat.appendChild(linkDiv);
+    parentLinkBox.insertBefore(childBoxFormat, parentLinkBox.firstChild);  
+    idx += 1;
+
+    const linkBox = inputField.parentNode.parentNode;
+
+    linkBox.addEventListener('focusin', () => {
+        linkDiv.style.backgroundColor = "#eeeeee";
+    });
+    linkBox.addEventListener('focusout', () => {
+        linkDiv.style.backgroundColor = "#d0beff";
+    })
+
+    inputField.focus();
+    inputField.addEventListener('focusout', (event) => {
+        if (checkFocusOut(event, linkBox)) {
+            console.log("Focus Out");
+            removeIfEmpty(inputField);
+        }
+    });
+
+    addDnDHandlers(linkBox);
+    updateAllLinkBox();
+};
+
+addLinkBtn.addEventListener('click', () => {
+    addLinkBox();
+});
+
+// ============== Drag & Drop ==============
+var dragSrcEl = null;
+
+function handleDragStart(e) {
+    dragSrcEl = this;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', this.outerHTML);
+    this.classList.add('dragElem');
+}
+function handleDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    var top = this.getBoundingClientRect().top;
+    var bottom = this.getBoundingClientRect().bottom;
+    if (e.clientY < (top + bottom) / 2) {
+        this.classList.add('over-before');
+        this.classList.remove('over-after');
+    }
+    else {
+        this.classList.add('over-after');
+        this.classList.remove('over-before');
+    }
+}
+
+function handleDragEnter(e) {
+
+}
+
+function handleDragLeave(e) {
+    this.classList.remove('dragElem');
+    this.classList.remove('over-before');
+    this.classList.remove('over-after');
+}
+
+function handleDrop(e) {
+    e.stopPropagation();
+    if (dragSrcEl != this) {
+        this.parentNode.removeChild(dragSrcEl);
+
+        if (this.classList.contains('over-before')) {
+            this.parentNode.insertBefore(dragSrcEl, this);
+            addDnDHandlers(this.previousElementSibling);
+        }
+        else if (this.classList.contains('over-after')) {
+            this.parentNode.insertBefore(dragSrcEl, this.nextSibling);
+            addDnDHandlers(this.nextElementSibling);
+        }
+    } else {
+        console.log("THISSSS", this);
+        this.classList.remove('over');
+    }
+    dragSrcEl.classList.remove('dragElem');
+    this.classList.remove('over');
+    this.classList.remove('over-before');
+    this.classList.remove('over-after');
+}
+
+function handleDragEnd(e) {
+    this.classList.remove('over-before');
+    this.classList.remove('over-after');
+}
+
+function addDnDHandlers(elem) {
+    elem.addEventListener('dragstart', handleDragStart, false);
+    elem.addEventListener('dragenter', handleDragEnter, false)
+    elem.addEventListener('dragover', handleDragOver, false);
+    elem.addEventListener('dragleave', handleDragLeave, false);
+    elem.addEventListener('drop', handleDrop, false);
+    elem.addEventListener('dragend', handleDragEnd, false);
+}
+
+
+// ============== Saving Links  ==============
+const saveBtn = document.getElementById("save-btn");
+saveBtn.addEventListener("click", () => {
+    const links = Array.from(document.querySelectorAll(".link-box input"));
 });
